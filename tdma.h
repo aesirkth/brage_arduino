@@ -47,18 +47,19 @@ struct tdmaState {
   bool synced;           // follower only transmits when true
 };
 
-struct __attribute__((packed)) tdmaHeader {
+struct tdmaHeader {
   SlotId slot_id;
   uint16_t frame_seq; 
   uint32_t epoch_us;  // micros() captured at tx start
-};
+  uint8_t num_records; // # of CAN records in payload
+} __attribute__((packed));
 
 void tdmaInit(TdmaRole role);
 void tdmaUpdate(); // run every loop iteration: check micros(), advance slots, control radio actions
 void tdmaProcessRx(const uint8_t *buf, size_t len); // process received message: decode header, update clockOffset (follower), push CAN payloads
 
 static void tdmaEnterSlot(SlotId slot);
-static void tdmaBuildHeader(tdmaHeader &header);
+static void tdmaBuildHeader(tdmaHeader &header, uint8_t num_records);
 static void tdmaTransmit();
 
 bool tdmaIsSynced(); 

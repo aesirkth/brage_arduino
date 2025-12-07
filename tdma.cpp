@@ -1,3 +1,6 @@
+#include <cstring>
+#include <system_error>
+#include <cstdint>
 #include <Arduino.h>
 #include "radio.h"
 #include "tdma.h"
@@ -77,10 +80,11 @@ void tdmaUpdate() {
   }
 }                            
 
-void tdmaBuildHeader(struct tdmaHeader &header){
+void tdmaBuildHeader(struct tdmaHeader &header, uint8_t num_records){
   header.slot_id = state.currentSlot;
   header.frame_seq = state.frameSeq;
   header.epoch_us = state.frameStartUs; 
+  header.num_records = num_records;
 } 
 
 void tdmaEnterSlot(SlotId next_slot) {
@@ -124,6 +128,7 @@ void tdmaProcessRx(const uint8_t *buf, size_t len) {
   uint8_t slot_id_raw;
   uint16_t frame_seq;
   uint32_t epoch_us;
+  uint8_t num_records;
 
   // parse header fields seperately
   memcpy(&slot_id_raw, &buf[offset], sizeof(slot_id_raw));
@@ -137,6 +142,8 @@ void tdmaProcessRx(const uint8_t *buf, size_t len) {
   offset += sizeof(frame_seq);
   memcpy(&epoch_us, &buf[offset], sizeof(epoch_us));
   offset += sizeof(epoch_us);
+  memcpy(&num_records, &buf[offset], sizeof(num_records));
+  offset += sizeof(num_records);  
 
   uint32_t rx_time = micros();
 
@@ -150,33 +157,32 @@ void tdmaProcessRx(const uint8_t *buf, size_t len) {
     Serial.printf("[TDMA] offset = %d\n", state.clockOffsetUs);
   }
   
-  while (offset + sizeof(canRec) <= len) {
+  for (uint8_t i = 0; i < num_records && offset + sizeof(canRec) <= len; i++) {
     canRec rec;
     memcpy(&rec, &buf[offset], sizeof(rec));
     offset += sizeof(rec);
-
-    rxBuf.push(rec);
+    rxBuf.push(rec); 
   }
   
 }
 
 void tdmaTransmit() {
-  struct tdmaHeader header;
-  tdmaBuildHeader(header);
-
-  uint8_t payload[MAX_PAYLOAD_LENGTH];
   
-  size_t offset = 0;
-
-  memcpy(&payload[offset], &header, sizeof(header));
-
-  offset += sizeof(header);
+  struct tdmaHeader header;
+  uint8_t payload[MAX_PAYLOAD_LENGTH];
+  uint8_t num_records = 0; 
+  
+  size_t offset = sizeof(tdmaHeader);
 
   while (!txBuf.isEmpty() && (offset + sizeof(canRec)) < MAX_PAYLOAD_LENGTH) {
     canRec rec = txBuf.shift();
     memcpy(&payload[offset], &rec, sizeof(rec));
     offset += sizeof(rec);
+    num_records++;
   }
+  
+  tdmaBuildHeader(header, num_records);
+  memcpy(&payload[0], &header, sizeof(header));
 
   radioTransmit(payload, offset);
 }
