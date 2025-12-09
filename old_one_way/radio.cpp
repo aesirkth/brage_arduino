@@ -113,10 +113,6 @@ static void handleRadioRx() {
 }
 
 void radioTransmit() {
-  if (radioBusy) {
-    return;  // already transmitting
-  }
-
   if (txBuf.isEmpty()) {
     return;
   }
@@ -143,6 +139,15 @@ void radioTransmit() {
     return;  // Wait for more frames
   }
 
+  // Atomically check and set radioBusy to prevent race condition
+  noInterrupts();
+  if (radioBusy) {
+    interrupts();
+    return;  // already transmitting
+  }
+  radioBusy = true;  // Set flag before enabling interrupts
+  interrupts();
+
   // Reset batch timer
   lastBatchStart = 0;
 
@@ -157,6 +162,7 @@ void radioTransmit() {
   }
 
   if (len == 0) {
+    radioBusy = false;  // Clear flag if no data to send
     return;
   }
 
@@ -166,16 +172,11 @@ void radioTransmit() {
   int state = radio.startTransmit(payload, len);
   if (state != RADIOLIB_ERR_NONE) {
     Serial.printf("[SX1280] Transmit failed (%d)\n", state);
+    radioBusy = false;  // Clear flag on failure
     // Back to RX on failure
     startRx();
-  } else {
-    // Serial.printf("[SX1280] TX hex dump: ");
-    // for (int i = 0; i < len; i++) {
-    //   Serial.printf("0x%x ", payload[i]);
-    // }
-    // Serial.println();
-    radioBusy = true;
   }
+  // Note: radioBusy will be cleared by TX_DONE interrupt on success
 
   digitalWrite(LED_TX, LOW);
 }
