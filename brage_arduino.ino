@@ -11,7 +11,7 @@ canRec testUplinkData = {.id = 0x1, .dlc = 1, .data = {0x69}};
 int lastTransmit = 0;
 
 void setup() {
-  Serial.begin(115200);
+  Serial.begin(230400);
 
   pinMode(LED_RX, OUTPUT);
   pinMode(LED_TX, OUTPUT);
@@ -27,10 +27,10 @@ void setup() {
 
 void loop() {
 
-  // if (millis() - lastTransmit >= 1000) {
-  //   txBuf.push(testUplinkData);
-  //   lastTransmit = millis();
-  // }
+  if (millis() - lastTransmit >= 1000) {
+    txBuf.push(testUplinkData);
+    lastTransmit = millis();
+  }
 
   pollCanRx();
   handleRadioIrq();

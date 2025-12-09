@@ -19,10 +19,10 @@ Packet format:
 
 #pragma once
 
-#define FRAME_LEN_US 20000 // 20 ms
-#define DOWNLINK_TIME_US 9000 // 9ms
-#define UPLINK_TIME_US 9000 // 9ms
-#define GUARD_TIME_US 1000 // 1ms
+#define FRAME_LEN_US 30000 // 30 ms
+#define DOWNLINK_TIME_US 13000 // 13 ms
+#define UPLINK_TIME_US 13000 // 13 ms
+#define GUARD_TIME_US 2000 // 2 ms
 
 enum TdmaRole: uint8_t {
   TDMA_MASTER,
@@ -56,10 +56,6 @@ struct tdmaHeader {
 
 void tdmaInit(TdmaRole role);
 void tdmaUpdate(); // run every loop iteration: check micros(), advance slots, control radio actions
-void tdmaProcessRx(const uint8_t *buf, size_t len); // process received message: decode header, update clockOffset (follower), push CAN payloads
-
-static void tdmaEnterSlot(SlotId slot);
-static void tdmaBuildHeader(tdmaHeader &header, uint8_t num_records);
-static void tdmaTransmit();
+void tdmaProcessRx(const uint8_t *buf, size_t len, uint32_t rx_time_us); // process received message: decode header, update clockOffset (follower), push CAN payloads
 
 bool tdmaIsSynced(); 

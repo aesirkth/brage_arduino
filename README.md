@@ -51,7 +51,6 @@ Best practices
 - TDMA protocol (`tdma.h`, `tdma.cpp`)
   - `tdmaInit(TdmaRole role)`: initialize state; master starts in guard/tx, follower waits for sync and listens.
   - `tdmaUpdate()`: run every loop; advances slots based on `micros()`, handles frame rollover, loss-of-sync.
-  - `tdmaProcessRx(const uint8_t* buf, size_t len)`: parse TDMA header, update follower clock offset, push embedded `canRec` payloads into `rxBuf`.
+  - `tdmaProcessRx(const uint8_t* buf, size_t len, uint32_t rx_time_us)`: parse TDMA header, update follower clock offset, push embedded `canRec` payloads into `rxBuf`. `rx_time_us` should be captured as close to the radio RX_DONE interrupt as possible.
   - `tdmaIsSynced()`: follower sync status; use to gate uplink transmissions.
   - Internals: `tdmaTransmit()` builds `[tdmaHeader][canRec]*` payload from `txBuf` respecting `MAX_PAYLOAD_LENGTH`.
-
