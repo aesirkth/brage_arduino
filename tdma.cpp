@@ -4,7 +4,7 @@
 #include <Arduino.h>
 
 #ifndef TDMA_ENABLE_DEBUG
-#define TDMA_ENABLE_DEBUG 1
+#define TDMA_ENABLE_DEBUG 0
 #endif
 
 #define TDMA_LOGF(...)                                                         \

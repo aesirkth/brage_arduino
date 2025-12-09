@@ -75,7 +75,7 @@ void startRx() {
     delay(100);
     return;
   }
-  // (toggle led rx) 
+  // (toggle led rx)
   // Serial.printf("[SX1280] Start RX (%d)\n", state);
 }
 
@@ -91,7 +91,7 @@ static void handleRadioRx() {
   // Serial.print(rssi);
   // Serial.print(", SNR: ");
   // Serial.println(snr);
-  
+
   int16_t len = radio.getPacketLength();
   if (len < 0) {
     Serial.printf("[SX1280] getPacketLength failed (%d)\n", len);
@@ -104,7 +104,7 @@ static void handleRadioRx() {
   }
   int state = radio.readData(buf, len);
   if (state == RADIOLIB_ERR_NONE) {
-    
+
     // Adjust timestamp toward packet mid-air to reduce offset error
     uint32_t toa_us = (uint32_t)(radio.getTimeOnAir(len) * 1000.0f); // getTimeOnAir returns ms
     if (toa_us / 2 < rx_time_us) {
@@ -128,6 +128,8 @@ static void handleRadioRx() {
 
 void radioTransmit(const uint8_t *buf, size_t len) {
   uint32_t now = micros();
+
+  noInterrupts();
   if (radioBusy) {
     if (radioTxDeadlineUs != 0 && (int32_t)(now - radioTxDeadlineUs) >= 0) {
       // Clear any stale IRQ state and reset busy tracking.
@@ -135,17 +137,23 @@ void radioTransmit(const uint8_t *buf, size_t len) {
       radioBusy = false;
       radioBusySinceUs = 0;
       radioTxDeadlineUs = 0;
+      interrupts();
       Serial.println("[SX1280] TX busy cleared (deadline)");
     } else {
+      interrupts();
       Serial.printf("[SX1280] TX blocked: busy (age=%lu us)\n", (unsigned long)(now - radioBusySinceUs));
       return;  // already transmitting
     }
+  } else {
+    interrupts();
   }
 
   digitalWrite(LED_TX, HIGH);
 
+  noInterrupts();
   int state = radio.startTransmit(buf, len);
   if (state != RADIOLIB_ERR_NONE) {
+    interrupts();
     Serial.printf("[SX1280] Transmit failed (%d)\n", state);
     startRx(); // return to rx on failure
   } else {
@@ -154,6 +162,7 @@ void radioTransmit(const uint8_t *buf, size_t len) {
     float toa_ms = radio.getTimeOnAir(len); // returns ms
     uint32_t toa_us = (uint32_t)(toa_ms * 1000.0f);
     radioTxDeadlineUs = radioBusySinceUs + toa_us + 5000; // guard margin
+    interrupts();
     Serial.printf("[SX1280] TX start len=%u\n", (unsigned int)len);
     Serial.printf("[SX1280] TX HEX DUMP: ");
     for (int i = 0; i < len; i++){
@@ -208,7 +217,7 @@ void radioIdle() {
   radioBusy = false;
   radioBusySinceUs = 0;
   radioTxDeadlineUs = 0;
-  
+
   if (radio.standby() != RADIOLIB_ERR_NONE) {
     Serial.printf("[SX1280] Failed to enter idle mode");
   }

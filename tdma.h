@@ -1,4 +1,3 @@
-#include <sys/_stdint.h>
 /*
 TDMA Protocol Layer
 
@@ -18,6 +17,9 @@ Packet format:
 */
 
 #pragma once
+
+#include <stdint.h>
+#include <stddef.h>
 
 #define FRAME_LEN_US 30000 // 30 ms
 #define DOWNLINK_TIME_US 13000 // 13 ms
