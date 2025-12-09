@@ -1,3 +1,5 @@
+#include "HardwareSerial.h"
+#include "WSerial.h"
 #include "radio.h"
 
 #include <string.h>
@@ -17,6 +19,11 @@ static const Module::RfSwitchMode_t rfswitch_table[] =
 
 volatile bool radioFlag;
 static volatile bool radioBusy = false;
+
+// Batching window configuration
+static const uint32_t BATCH_WINDOW_MS = 20;  // Wait up to 20ms to accumulate frames
+static const uint8_t MIN_BATCH_SIZE = 3;     // Or transmit when we have 3+ frames
+static uint32_t lastBatchStart = 0;
 
 static void setFlag() {
   radioFlag = true;
@@ -85,11 +92,11 @@ static void handleRadioRx() {
     Serial.printf("[SX1280] Received payload of length %d\n", len);
     // push received payload to rxBuf
     size_t offset = 0;
-    Serial.println("[DEBUG] Records in payload:");
+    // Serial.println("[DEBUG] Records in payload:");
     while (offset + sizeof(canRec) <= (size_t)len) {
       canRec rec;
       memcpy(&rec, &buf[offset], sizeof(rec));
-      Serial.printf("\tID: 0x%x, DLC: %d\n", rec.id, rec.dlc);
+      // Serial.printf("\tID: 0x%x, DLC: %d\n", rec.id, rec.dlc);
       offset += sizeof(rec);
 
       rxBuf.push(rec);
@@ -109,6 +116,35 @@ void radioTransmit() {
   if (radioBusy) {
     return;  // already transmitting
   }
+
+  if (txBuf.isEmpty()) {
+    return;
+  }
+
+  uint32_t now = millis();
+  size_t txBufSize = txBuf.size();
+
+  // Start batching window when first frame arrives
+  if (lastBatchStart == 0) {
+    lastBatchStart = now;
+  }
+
+  uint32_t elapsed = now - lastBatchStart;
+
+  // Transmit if:
+  // 1. Batch window has elapsed, OR
+  // 2. We have accumulated enough frames, OR
+  // 3. Buffer is getting full (>50%)
+  bool shouldTransmit = (elapsed >= BATCH_WINDOW_MS) ||
+                        (txBufSize >= MIN_BATCH_SIZE) ||
+                        (txBufSize > (MAX_LENGTH / 2));
+
+  if (!shouldTransmit) {
+    return;  // Wait for more frames
+  }
+
+  // Reset batch timer
+  lastBatchStart = 0;
 
   uint8_t payload[MAX_PAYLOAD_LENGTH];
   size_t  len = 0;
@@ -133,6 +169,11 @@ void radioTransmit() {
     // Back to RX on failure
     startRx();
   } else {
+    // Serial.printf("[SX1280] TX hex dump: ");
+    // for (int i = 0; i < len; i++) {
+    //   Serial.printf("0x%x ", payload[i]);
+    // }
+    // Serial.println();
     radioBusy = true;
   }
 

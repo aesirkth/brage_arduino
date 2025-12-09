@@ -2,10 +2,6 @@
 #include "can.h"
 #include "radio.h"
 
-#define TDMA_MASTER true // Master = Rocket, Follower = GCS
-#define TDMA_FRAME_MS 10
-#define TDMA_GUARD_US 100 // based on switching time
-
 uint32_t lastTransmit = 0;
 
 const canRec testFrames[] = {
@@ -33,9 +29,9 @@ uint32_t lastTestFrameEnqueue = 0;
 
 void enqueueTestFrames() {
   uint32_t now = millis();
-  if (now - lastTestFrameEnqueue < TEST_FRAME_INTERVAL_MS) {
-    return;
-  }
+  // if (now - lastTestFrameEnqueue < TEST_FRAME_INTERVAL_MS) {
+  //   return;
+  // }
 
   lastTestFrameEnqueue = now;
 
@@ -45,7 +41,7 @@ void enqueueTestFrames() {
 }
 
 void setup() {
-  Serial.begin(9600);
+  Serial.begin(115200);
 
   pinMode(LED_RX, OUTPUT);
   pinMode(LED_TX, OUTPUT);
@@ -54,12 +50,11 @@ void setup() {
   initRadio();
   startRx();
 
-  // lastTestFrameEnqueue = millis() - TEST_FRAME_INTERVAL_MS;
+  // enqueueTestFrames();
   delay(500);
 }
 
 void loop() {
-  enqueueTestFrames();
 
   pollCanRx();
   handleRadioIrq();
