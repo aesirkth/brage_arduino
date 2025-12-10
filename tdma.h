@@ -22,9 +22,9 @@ Packet format:
 #include <stddef.h>
 
 #define FRAME_LEN_US 30000 // 30 ms
-#define DOWNLINK_TIME_US 13000 // 13 ms
-#define UPLINK_TIME_US 13000 // 13 ms
-#define GUARD_TIME_US 2000 // 2 ms
+#define DOWNLINK_TIME_US 10000 // 10 ms
+#define UPLINK_TIME_US 10000 // 10 ms
+#define GUARD_TIME_US 5000 // 5 ms
 
 enum TdmaRole: uint8_t {
   TDMA_MASTER,

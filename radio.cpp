@@ -55,8 +55,9 @@ void initRadio() {
 
 // configure radio settings and modulation parameters
 void configRadio() {
-  radio.setBitRate(FLRC_BIT_RATE);
-  radio.setCodingRate(FLRC_CR);
+  // *test keeping defaults
+  // radio.setBitRate(FLRC_BIT_RATE);
+  // radio.setCodingRate(FLRC_CR);
   // Add frequency config
   uint8_t syncword[] = {0x41, 0x45, 0x53, 0x52}; // AESR :)
   radio.setSyncWord(syncword, 4);

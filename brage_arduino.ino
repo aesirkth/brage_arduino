@@ -3,10 +3,10 @@
 #include "radio.h"
 #include "tdma.h"
 
-// #define ROLE TDMA_MASTER
-#define ROLE TDMA_FOLLOWER
+#define ROLE TDMA_MASTER
+// #define ROLE TDMA_FOLLOWER
 
-canRec testUplinkData = {.id = 0x1, .dlc = 1, .data = {0x69}};
+canRec testUplinkData = {.id = 0x720, .dlc = 8, .data = {0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA}};
 
 int lastTransmit = 0;
 
