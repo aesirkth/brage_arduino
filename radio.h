@@ -17,7 +17,7 @@ Modes:
 
 #include <RadioLib.h>
 
-#define MAX_PAYLOAD_LENGTH  RADIOLIB_SX128X_MAX_PACKET_LENGTH
+#define MAX_PAYLOAD_LENGTH  127
 
 extern volatile bool radioFlag;
 
