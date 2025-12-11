@@ -1,5 +1,3 @@
-#include "HardwareSerial.h"
-#include "WSerial.h"
 #include "radio.h"
 
 #include <string.h>
