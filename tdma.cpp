@@ -1,3 +1,4 @@
+#include <stdint.h>
 #include "tdma.h"
 #include "can.h"
 #include "radio.h"
@@ -128,40 +129,47 @@ static void tdmaEnterSlot(SlotId next_slot) {
   }
 }
 
+static bool processHeader(const uint8_t *buf, uint32_t rx_time){
+  tdmaHeader h;
+  
+  memcpy(&h, buf, sizeof(tdmaHeader));
+
+  if (h.slot_id != DOWNLINK && h.slot_id != UPLINK && h.slot_id != GUARD) {
+    TDMA_LOGF("[TDMA] Invalid slot ID\n");
+    return false;
+  }
+
+  TDMA_LOGF("[TDMA] RX header: slot=%d frame=%d epoch=%lu records=%d\n",
+              h.slot_id, h.frame_seq, h.epoch_us, h.num_records);
+
+
+  if (h.slot_id == DOWNLINK) {
+    uint32_t rx_est = rx_time;
+    uint32_t downlink_mid = GUARD_TIME_US + (DOWNLINK_TIME_US / 2);
+    if (rx_est > downlink_mid) {
+      rx_est -= downlink_mid;
+    }
+    state.clockOffsetUs = (int32_t)(h.epoch_us - rx_est);
+    state.frameSeq = h.frame_seq;
+    state.frameStartUs = h.epoch_us;
+    state.synced = true;
+    state.lastSyncUs = rx_time;
+  }
+
+  return true;
+}
+
 void tdmaProcessRx(const uint8_t *buf, size_t len, uint32_t rx_time) {
   size_t offset = 0;
 
-  // Follower parses header, master doesn't
   if (state.role == TDMA_FOLLOWER) {
     if (len < sizeof(tdmaHeader)) {
       return;
-    }
-
-    tdmaHeader header;
-    memcpy(&header, buf, sizeof(tdmaHeader));
-    offset += sizeof(tdmaHeader);
-
-    // Validate slot ID
-    if (header.slot_id != DOWNLINK && header.slot_id != UPLINK && header.slot_id != GUARD) {
+    } 
+    if (!processHeader(buf, rx_time)) {
       return;
     }
-
-    TDMA_LOGF("[TDMA] RX header: slot=%d frame=%d epoch=%lu records=%d\n",
-              header.slot_id, header.frame_seq, header.epoch_us, header.num_records);
-
-    // Sync from DOWNLINK
-    if (header.slot_id == DOWNLINK) {
-      uint32_t rx_est = rx_time;
-      uint32_t downlink_mid = GUARD_TIME_US + (DOWNLINK_TIME_US / 2);
-      if (rx_est > downlink_mid) {
-        rx_est -= downlink_mid;
-      }
-      state.clockOffsetUs = (int32_t)(header.epoch_us - rx_est);
-      state.frameSeq = header.frame_seq;
-      state.frameStartUs = header.epoch_us;
-      state.synced = true;
-      state.lastSyncUs = rx_time;
-    }
+    offset = sizeof(tdmaHeader);
   }
 
   // Extract CAN records

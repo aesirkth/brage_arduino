@@ -3,10 +3,10 @@ TDMA Protocol Layer
 
 Allows duplex communication between rocket and gcs
 
-Frame structure [20 ms]:
+Frame structure [100 ms]:
   [GUARD][DOWNLINK][GUARD][UPLINK]
-  - GUARD - 1 ms
-  - DOWNLINK/UPLINK - 9 ms
+  - GUARD - 10 ms
+  - DOWNLINK/UPLINK - 40 ms
 
 - Master (rocket) transmits during DOWNLINK, receives during UPLINK
 - Follower (gcs) receives during DOWNLINK, transmits during UPLINK
@@ -21,10 +21,10 @@ Packet format:
 #include <stdint.h>
 #include <stddef.h>
 
-#define FRAME_LEN_US 30000 // 30 ms
-#define DOWNLINK_TIME_US 10000 // 10 ms
-#define UPLINK_TIME_US 10000 // 10 ms
-#define GUARD_TIME_US 5000 // 5 ms
+#define FRAME_LEN_US (100 * 1000) // 100 ms
+#define DOWNLINK_TIME_US (40 * 1000) // 40 ms
+#define UPLINK_TIME_US (40 * 1000) // 40 ms
+#define GUARD_TIME_US (10 * 1000) // 10 ms
 
 enum TdmaRole: uint8_t {
   TDMA_MASTER,
