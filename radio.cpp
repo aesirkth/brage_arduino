@@ -44,6 +44,8 @@ void initRadio() {
 void configRadio() {
   uint8_t syncword[] = {0x41, 0x45, 0x53, 0x52};
   radio.setSyncWord(syncword, 4);
+  radio.variablePacketLengthMode(MAX_PAYLOAD_LENGTH);
+  radio.setCRC(2);
 }
 
 void startRx() {
@@ -90,6 +92,7 @@ static void handleRadioRx() {
     Serial.printf("[SX1280] RX error: %d\n", state);
   }
 
+  radio.finishReceive();
   startRx();
 }
 
@@ -144,9 +147,12 @@ void handleRadioIrq() {
   }
 
   if (irqStatus & RADIOLIB_SX128X_IRQ_RX_TX_TIMEOUT) {
-    radio.finishTransmit();
-    radioBusy = false;
-    Serial.println("[SX1280] TX timeout");
+    if (radioBusy) {
+      radio.finishTransmit();
+      radioBusy = false;
+    } else {
+      radio.finishReceive();
+    }
     startRx();
   }
 }
