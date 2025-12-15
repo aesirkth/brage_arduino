@@ -180,6 +180,13 @@ void tdmaProcessRx(const uint8_t *buf, size_t len, uint32_t rx_time) {
     rxBuf.push(rec);
     TDMA_LOGF("  RX CAN id=0x%lx dlc=%u\n", rec.id, rec.dlc);
   }
+  
+  Serial.printf("[SX1280] RX len=%d\n", len);
+  Serial.printf("[SX1280] RX HEX: ");
+  for (int i = 0; i < len; i++) {
+    Serial.printf("0x%x ", buf[i]);
+  }
+  Serial.println();
 }
 
 static void tdmaTransmit() {

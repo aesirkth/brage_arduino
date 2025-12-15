@@ -25,7 +25,8 @@ static void setFlag() {
 void initRadio() {
   Serial.println("[SX1280] Initializing...");
 
-  int state = radio.beginFLRC();
+  // int state = radio.beginFLRC();
+  int state = radio.begin();
   if (state != RADIOLIB_ERR_NONE) {
     Serial.printf("[SX1280] Init failed: %d\n", state);
     while (true) {
@@ -42,8 +43,11 @@ void initRadio() {
 }
 
 void configRadio() {
-  uint8_t syncword[] = {0x41, 0x45, 0x53, 0x52};
-  radio.setSyncWord(syncword, 4);
+  // uint8_t syncword[] = {0x41, 0x45, 0x53, 0x52};
+  // radio.setSyncWord(syncword, 4);
+  // radio.setSpreadingFactor(7);
+  // radio.setBandwidth(800);
+  // radio.setCodingRate(uint8_t cr)
   radio.variablePacketLengthMode(MAX_PAYLOAD_LENGTH);
   radio.setCRC(2);
 }
@@ -57,6 +61,7 @@ void startRx() {
 
 static void handleRadioRx() {
   uint8_t buf[MAX_PAYLOAD_LENGTH];
+  memset(buf, 0xEE, sizeof(buf));
   uint32_t rx_time_us = lastRxDoneUs;
 
   int16_t len = radio.getPacketLength();
@@ -68,7 +73,7 @@ static void handleRadioRx() {
   if (len > MAX_PAYLOAD_LENGTH) {
     len = MAX_PAYLOAD_LENGTH;
   }
-
+  
   int state = radio.readData(buf, len);
   if (state == RADIOLIB_ERR_NONE) {
     // Adjust RX timestamp to packet midpoint
@@ -77,13 +82,6 @@ static void handleRadioRx() {
     if (midpoint_offset < rx_time_us) {
       rx_time_us -= midpoint_offset;
     }
-
-    Serial.printf("[SX1280] RX len=%d\n", len);
-    Serial.printf("[SX1280] RX HEX: ");
-    for (int i = 0; i < len; i++) {
-      Serial.printf("0x%x ", buf[i]);
-    }
-    Serial.println();
 
     tdmaProcessRx(buf, (size_t)len, rx_time_us);
   } else if (state == RADIOLIB_ERR_CRC_MISMATCH) {
