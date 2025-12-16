@@ -43,11 +43,13 @@ void initRadio() {
 }
 
 void configRadio() {
-  // uint8_t syncword[] = {0x41, 0x45, 0x53, 0x52};
-  // radio.setSyncWord(syncword, 4);
-  // radio.setSpreadingFactor(7);
-  // radio.setBandwidth(800);
-  // radio.setCodingRate(uint8_t cr)
+
+  radio.setSpreadingFactor(6);
+  radio.setBandwidth(812.5);
+  radio.setCodingRate(5);
+  radio.setPreambleLength(8);
+  radio.setOutputPower(13);
+
   radio.variablePacketLengthMode(MAX_PAYLOAD_LENGTH);
   radio.setCRC(2);
 }
@@ -60,8 +62,7 @@ void startRx() {
 }
 
 static void handleRadioRx() {
-  uint8_t buf[MAX_PAYLOAD_LENGTH];
-  memset(buf, 0xEE, sizeof(buf));
+  uint8_t buf[MAX_PAYLOAD_LENGTH] = {0};
   uint32_t rx_time_us = lastRxDoneUs;
 
   int16_t len = radio.getPacketLength();
@@ -107,12 +108,12 @@ void radioTransmit(const uint8_t *buf, size_t len) {
     radioBusy = true;
     interrupts();
 
-    Serial.printf("[SX1280] TX len=%u\n", (unsigned int)len);
-    Serial.printf("[SX1280] TX HEX: ");
-    for (size_t i = 0; i < len; i++) {
-      Serial.printf("0x%x ", buf[i]);
-    }
-    Serial.println();
+    // Serial.printf("[SX1280] TX len=%u\n", (unsigned int)len);
+    // Serial.printf("[SX1280] TX HEX: ");
+    // for (size_t i = 0; i < len; i++) {
+    //   Serial.printf("0x%x ", buf[i]);
+    // }
+    // Serial.println();
   } else {
     interrupts();
     Serial.printf("[SX1280] TX failed: %d\n", state);
@@ -140,7 +141,7 @@ void handleRadioIrq() {
   if (irqStatus & RADIOLIB_SX128X_IRQ_TX_DONE) {
     radio.finishTransmit();
     radioBusy = false;
-    Serial.println("[SX1280] TX done");
+    // Serial.println("[SX1280] TX done");
     startRx();
   }
 

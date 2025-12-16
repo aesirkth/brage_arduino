@@ -3,10 +3,10 @@
 #include "radio.h"
 #include "tdma.h"
 
-// #define ROLE TDMA_MASTER
-#define ROLE TDMA_FOLLOWER
+#define ROLE TDMA_MASTER
+// #define ROLE TDMA_FOLLOWER
 
-canRec testUplinkData = {.id = 0x720, .dlc = 8, .data = {0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA}};
+// canRec testUplinkData = {.id = 0x720, .dlc = 8, .data = {0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA}};
 
 int lastTransmit = 0;
 
@@ -27,10 +27,10 @@ void setup() {
 
 void loop() {
 
-  if (millis() - lastTransmit >= 1000) {
-    txBuf.push(testUplinkData);
-    lastTransmit = millis();
-  }
+  // if (millis() - lastTransmit >= 1000) {
+  //   txBuf.push(testUplinkData);
+  //   lastTransmit = millis();
+  // }
 
   pollCanRx();
   handleRadioIrq();

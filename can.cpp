@@ -2,7 +2,7 @@
 
 #include <Arduino.h>
 
-static uint32_t txBufOverwrites = 0; // track overwritten CAN records
+// static uint32_t txBufOverwrites = 0; // track overwritten CAN records
 
 FDCAN_HandleTypeDef hfdcan1;
 
@@ -144,9 +144,9 @@ void pollCanRx() {
     memset(rec.data, 0, sizeof(rec.data));
     memcpy(rec.data, data, len);
 
-    if(!txBuf.push(rec)) {
-      txBufOverwrites += 1; // push returns 0 on overwrite
-    }
+    // if(!txBuf.push(rec)) {
+    //   txBufOverwrites += 1; // push returns 0 on overwrite
+    // }
 
   } else {
     Serial.printf("[CAN] GetRxMessage failed, ErrorCode=0x%08lx\n", hfdcan1.ErrorCode);

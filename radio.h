@@ -17,7 +17,7 @@ Modes:
 
 #include <RadioLib.h>
 
-#define MAX_PAYLOAD_LENGTH  127
+#define MAX_PAYLOAD_LENGTH  250
 
 extern volatile bool radioFlag;
 
