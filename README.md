@@ -1,11 +1,11 @@
 # Brage Arduino Firmware
 
-Bridges the rocket CAN bus to a 2.4 GHz SX1280 radio link using a simple TDMA schedule. The rocket runs as TDMA master (downlink slot sender); the ground station runs as TDMA follower (uplink slot sender).
+Bridges the rocket CAN bus to a 2.4 GHz SX1280 radio link using a simple TDMA schedule. The GCS runs as TDMA master (downlink slot sender); the rocket runs as TDMA follower (uplink slot sender).
 
 ## Overview
-- 20 ms TDMA frame: 1 ms guard, 9 ms downlink, 1 ms guard, 9 ms uplink (`tdma.h`).
+- 100 ms TDMA frame: 10 ms guard, 60 ms downlink, 10 ms guard, 20 ms uplink (`tdma.h`).
 - CAN frames are buffered into `txBuf` (CAN→radio) and `rxBuf` (radio→CAN) and carried inside each TDMA packet (`can.cpp`, `tdma.cpp`).
-- Radio layer uses semtech's FLRC modulation, SX1280 + power amplifier with RF switch table, and DIO1 IRQ polling from the main loop (`radio.cpp`).
+- Radio layer uses LoRa modulation (SF6, 812.5 kHz BW), SX1280 + power amplifier with RF switch table, and DIO1 IRQ polling from the main loop (`radio.cpp`).
 - Designed for STM32C0xx (Nucleo C092RC) or STM32U5xx (brage) with an external CAN transceiver and SX1280 IC with RF front-end (`pin_config.h`).
 
 Prerequisites / dependencies
@@ -21,12 +21,12 @@ Best practices
 - Use short logging in ISR-adjacent paths; heavy `Serial` use can jitter TDMA timing.
 
 ## Configuration
-- Role selection (`arduino_firmware.ino`): set `#define ROLE TDMA_MASTER` or `TDMA_FOLLOWER`. Follower will only transmit when synced.
+- Role selection (`brage_arduino.ino`): set `#define ROLE TDMA_MASTER` or `TDMA_FOLLOWER`. Follower will only transmit when synced.
 - Radio settings (`radio.cpp`):
-  - `FLRC_BIT_RATE` (325 kb/s) and `FLRC_CR` (3/4) via `configRadio()`.
-  - Sync word `{0x41, 0x45, 0x53, 0x52}` must match on both ends.
+  - LoRa: SF6, 812.5 kHz bandwidth, CR 5, 13 dBm output power via `configRadio()`.
   - RF switch pins / DIO1 / RESET / BUSY from `pin_config.h`.
-- TDMA timing (`tdma.h`): `FRAME_LEN_US=20000`, `DOWNLINK_TIME_US=9000`, `UPLINK_TIME_US=9000`, `GUARD_TIME_US=1000`.
+- TDMA timing (`tdma.h`): `FRAME_LEN_US=100000`, `DOWNLINK_TIME_US=60000`, `UPLINK_TIME_US=20000`, `GUARD_TIME_US=10000`.
+- Payload limits (`tdma.h`): Master (GCS) sends up to 2 CAN records (34 bytes), Follower (Rocket) sends up to 16 CAN records (208 bytes).
 - CAN layer (`can.cpp`):
   - Nominal/data bit timing set for 500 kbps with 48 MHz CAN clock.
   - Filters accept all standard IDs.
@@ -42,8 +42,8 @@ Best practices
   - `processCanTx()`: drain `rxBuf` (from radio) into FDCAN TX FIFO.
   - Buffers: `CircularBuffer<canRec, MAX_LENGTH> rxBuf` (radio→CAN), `txBuf` (CAN→radio); `canRec` holds `id`, `dlc`, `data[8]`.
 - Radio layer (`radio.h`, `radio.cpp`)
-  - `initRadio()`: bring up SX1280 in FLRC, configure RF switch table, attach DIO1 ISR.
-  - `configRadio()`: apply bit rate, coding rate, sync word.
+  - `initRadio()`: bring up SX1280 in LoRa mode, configure RF switch table, attach DIO1 ISR.
+  - `configRadio()`: apply spreading factor, bandwidth, coding rate, output power.
   - `startRx()`: enter receive mode; called at slot boundaries and after TX/RX.
   - `handleRadioIrq()`: poll DIO1 flag, dispatch RX_DONE / TX_DONE, restart RX.
   - `radioTransmit(const uint8_t* buf, size_t len)`: start TX if not busy; falls back to RX on error.
@@ -53,4 +53,4 @@ Best practices
   - `tdmaUpdate()`: run every loop; advances slots based on `micros()`, handles frame rollover, loss-of-sync.
   - `tdmaProcessRx(const uint8_t* buf, size_t len, uint32_t rx_time_us)`: parse TDMA header, update follower clock offset, push embedded `canRec` payloads into `rxBuf`. `rx_time_us` should be captured as close to the radio RX_DONE interrupt as possible.
   - `tdmaIsSynced()`: follower sync status; use to gate uplink transmissions.
-  - Internals: `tdmaTransmit()` builds `[tdmaHeader][canRec]*` payload from `txBuf` respecting `MAX_PAYLOAD_LENGTH`.
+  - Internals: `tdmaTransmit()` builds `[tdmaHeader][canRec]*` payload from `txBuf` respecting role-specific payload limits.
