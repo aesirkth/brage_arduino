@@ -144,6 +144,7 @@ void pollCanRx() {
     memset(rec.data, 0, sizeof(rec.data));
     memcpy(rec.data, data, len);
 
+    txBuf.push(rec);
     // if(!txBuf.push(rec)) {
     //   txBufOverwrites += 1; // push returns 0 on overwrite
     // }
