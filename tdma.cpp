@@ -119,7 +119,6 @@ static void tdmaEnterSlot(SlotId next_slot) {
   case UPLINK:
     if (state.role == TDMA_FOLLOWER) {
       if (state.synced && !txBuf.isEmpty()) {
-        delay(1);  // Small delay before transmit
         tdmaTransmit();
       }
       // else stay in RX (already there)
@@ -190,17 +189,22 @@ void tdmaProcessRx(const uint8_t *buf, size_t len, uint32_t rx_time) {
 }
 
 static void tdmaTransmit() {
-  uint8_t payload[MAX_PAYLOAD_LENGTH];
   size_t offset = 0;
   uint8_t num_records = 0;
+
+  // Select payload limit and max records based on role
+  const size_t max_payload = (state.role == TDMA_MASTER) ? MASTER_PAYLOAD_LEN : FOLLOWER_PAYLOAD_LEN;
+  const uint8_t max_records = (state.role == TDMA_MASTER) ? MASTER_MAX_CAN_RECORDS : FOLLOWER_MAX_CAN_RECORDS;
+
+  uint8_t payload[max_payload];
 
   // Master builds header first
   if (state.role == TDMA_MASTER) {
     offset = sizeof(tdmaHeader);
   }
 
-  // Pack CAN records
-  while (!txBuf.isEmpty() && (offset + sizeof(canRec)) <= MAX_PAYLOAD_LENGTH) {
+  // Pack CAN records up to role-specific limit
+  while (!txBuf.isEmpty() && num_records < max_records && (offset + sizeof(canRec)) <= max_payload) {
     canRec rec = txBuf.shift();
     memcpy(&payload[offset], &rec, sizeof(rec));
     offset += sizeof(rec);
