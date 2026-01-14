@@ -20,13 +20,13 @@ struct SlotWindow {
   uint32_t endUs;
 };
 
-static const SlotWindow kFrameSlots[] = {
-    {GUARD, 0, GUARD_TIME_US},
-    {DOWNLINK, GUARD_TIME_US, GUARD_TIME_US + DOWNLINK_TIME_US},
-    {GUARD, GUARD_TIME_US + DOWNLINK_TIME_US,
-     GUARD_TIME_US + DOWNLINK_TIME_US + GUARD_TIME_US},
-    {UPLINK, GUARD_TIME_US + DOWNLINK_TIME_US + GUARD_TIME_US, FRAME_LEN_US},
-};
+// static const SlotWindow kFrameSlots[] = {
+//     {GUARD, 0, GUARD_TIME_US},
+//     {DOWNLINK, GUARD_TIME_US, GUARD_TIME_US + DOWNLINK_TIME_US},
+//     {GUARD, GUARD_TIME_US + DOWNLINK_TIME_US,
+//      GUARD_TIME_US + DOWNLINK_TIME_US + GUARD_TIME_US},
+//     {UPLINK, GUARD_TIME_US + DOWNLINK_TIME_US + GUARD_TIME_US, FRAME_LEN_US},
+// };
 
 void tdmaInit(TdmaRole role) {
   state.role = role;
@@ -77,13 +77,16 @@ void tdmaUpdate() {
     tdmaEnterSlot(GUARD);
   }
 
-  // Find current slot
-  SlotId slot = state.currentSlot;
-  for (const SlotWindow &frameSlot : kFrameSlots) {
-    if (elapsed >= frameSlot.startUs && elapsed < frameSlot.endUs) {
-      slot = frameSlot.id;
-      break;
-    }
+  // Find current slot based on elapsed time
+  SlotId slot;
+  if (elapsed < GUARD_TIME_US) {
+    slot = GUARD;
+  } else if (elapsed < GUARD_TIME_US + DOWNLINK_TIME_US) {
+    slot = DOWNLINK;
+  } else if (elapsed < GUARD_TIME_US + DOWNLINK_TIME_US + GUARD_TIME_US) {
+    slot = GUARD;
+  } else {
+    slot = UPLINK;
   }
 
   if (slot != state.currentSlot) {
@@ -103,27 +106,23 @@ static void tdmaEnterSlot(SlotId next_slot) {
 
   switch (next_slot) {
   case GUARD:
-    // Do nothing - radio is already in correct mode
-    // Master: in RX from previous UPLINK
-    // Follower: stays in RX
+    startRx();
     break;
 
   case DOWNLINK:
-    if (state.role == TDMA_MASTER) {
-      tdmaTransmit();  // startTransmit() handles mode switch
-    } else {
-      startRx();  // Follower listens for master
-    }
-    break;
-
-  case UPLINK:
     if (state.role == TDMA_FOLLOWER) {
       if (state.synced && !txBuf.isEmpty()) {
         tdmaTransmit();
       }
-      // else stay in RX (already there)
+    } else {
+      startRx();
     }
-    // Master is already in RX from TX_DONE, do nothing
+    break;
+
+  case UPLINK:
+    if (state.role == TDMA_MASTER) {
+      tdmaTransmit();
+    }
     break;
   }
 }
@@ -142,13 +141,13 @@ static bool processHeader(const uint8_t *buf, uint32_t rx_time){
               h.slot_id, h.frame_seq, h.epoch_us, h.num_records);
 
 
-  if (h.slot_id == DOWNLINK) {
-    uint32_t rx_est = rx_time;
-    uint32_t downlink_mid = GUARD_TIME_US + (DOWNLINK_TIME_US / 2);
-    if (rx_est > downlink_mid) {
-      rx_est -= downlink_mid;
-    }
-    state.clockOffsetUs = (int32_t)(h.epoch_us - rx_est);
+if (h.slot_id == UPLINK) {
+    // Calculate offset based on UPLINK start time (Guard + Downlink + Guard = 80ms)
+    uint32_t uplink_start_us = GUARD_TIME_US + DOWNLINK_TIME_US + GUARD_TIME_US;
+    
+    // clockOffset = (MasterFrameStart) - (LocalRxTime - TimeIntoFrame)
+    state.clockOffsetUs = (int32_t)(h.epoch_us - (rx_time - uplink_start_us));
+    
     state.frameSeq = h.frame_seq;
     state.frameStartUs = h.epoch_us;
     state.synced = true;
@@ -180,12 +179,12 @@ void tdmaProcessRx(const uint8_t *buf, size_t len, uint32_t rx_time) {
     TDMA_LOGF("  RX CAN id=0x%lx dlc=%u\n", rec.id, rec.dlc);
   }
   
-  // Serial.printf("[SX1280] RX len=%d\n", len);
-  // Serial.printf("[SX1280] RX HEX: ");
-  // for (int i = 0; i < len; i++) {
-  //   Serial.printf("0x%x ", buf[i]);
-  // }
-  // Serial.println();
+  Serial.printf("[SX1280] RX len=%d\n", len);
+  Serial.printf("[SX1280] RX HEX: ");
+  for (int i = 0; i < len; i++) {
+    Serial.printf("0x%x ", buf[i]);
+  }
+  Serial.println();
 }
 
 static void tdmaTransmit() {
@@ -216,9 +215,9 @@ static void tdmaTransmit() {
     tdmaHeader header;
     tdmaBuildHeader(header, num_records);
     memcpy(&payload[0], &header, sizeof(header));
-    TDMA_LOGF("[TDMA] TX DOWNLINK: frame=%u records=%u\n", header.frame_seq, num_records);
+    TDMA_LOGF("[TDMA] TX UPLINK: frame=%u records=%u\n", header.frame_seq, num_records);
   } else {
-    TDMA_LOGF("[TDMA] TX UPLINK: records=%u\n", num_records);
+    TDMA_LOGF("[TDMA] TX DOWNLINK: records=%u\n", num_records);
   }
 
   radioTransmit(payload, offset);
