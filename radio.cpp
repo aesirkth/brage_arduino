@@ -1,4 +1,5 @@
 #include <Arduino.h>
+#include <SPI.h>
 #include "radio.h"
 #include "can.h"
 #include "tdma.h"
@@ -6,11 +7,11 @@
 
 SX1280 radio = new Module(SX_CS, SX_DIO1, SX_RESET, SX_BUSY);
 
-static const uint32_t rfswitch_pins[] = {PA_EN, RX_EN, TX_EN, RADIOLIB_NC, RADIOLIB_NC};
+static const uint32_t rfswitch_pins[] = {PA_EN, RX_EN, TX_EN, VREF_EN, RADIOLIB_NC};
 static const Module::RfSwitchMode_t rfswitch_table[] = {
-  {Module::MODE_IDLE, {LOW, LOW, LOW}},
-  {Module::MODE_RX,   {LOW, HIGH, LOW}},
-  {Module::MODE_TX,   {HIGH, LOW, HIGH}},
+  {Module::MODE_IDLE, {LOW, LOW, LOW, LOW}},
+  {Module::MODE_RX,   {LOW, HIGH, LOW, LOW}},
+  {Module::MODE_TX,   {HIGH, LOW, HIGH, HIGH}},
   Module::MODE_END_OF_TABLE,
 };
 
@@ -24,6 +25,12 @@ static void setFlag() {
 
 void initRadio() {
   Serial.println("[SX1280] Initializing...");
+
+  // force correct spi pins
+  SPI.setSCLK(PA5);
+  SPI.setMISO(PA6);
+  SPI.setMOSI(PA7);
+  SPI.begin();
 
   // int state = radio.beginFLRC();
   int state = radio.begin();

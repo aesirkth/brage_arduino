@@ -9,6 +9,7 @@
   #define SX_BUSY 3
   #define SX_DIO1 4
 
+  #define VREF_EN RADIOLIB_NC // unused
   #define PA_EN RADIOLIB_NC // unused
   #define TX_EN 6
   #define RX_EN 5
@@ -30,7 +31,7 @@
   #define SX_RESET PB6
   #define SX_BUSY PA15
 
-  #define VREF_EN PA9 // 2V8_EN
+  #define VREF_EN PB2 // LED_G temporary solution
   #define PA_EN PC13
   #define TX_EN PC14
   #define RX_EN PC15
