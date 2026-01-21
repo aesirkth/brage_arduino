@@ -1,3 +1,4 @@
+#include "WSerial.h"
 #include "can.h"
 
 #include <Arduino.h>
@@ -67,6 +68,23 @@ extern "C" void HAL_FDCAN_MspInit(FDCAN_HandleTypeDef* hfdcan) {
 void initCan() {
   Serial.println("[CAN] Initializing...");
 
+  #if defined(STM32U5xx)
+  // Enable PLL1Q output (80 MHz) for FDCAN clock
+  if (!(RCC->PLL1CFGR & RCC_PLL1CFGR_PLL1QEN)) {
+    SET_BIT(RCC->PLL1CFGR, RCC_PLL1CFGR_PLL1QEN);
+  }
+
+  // Configure FDCAN clock source to PLL1Q instead of HSE
+  RCC_PeriphCLKInitTypeDef periphClkInit = {0};
+  periphClkInit.PeriphClockSelection = RCC_PERIPHCLK_FDCAN1;
+  periphClkInit.Fdcan1ClockSelection = RCC_FDCAN1CLKSOURCE_PLL1;
+
+  if (HAL_RCCEx_PeriphCLKConfig(&periphClkInit) != HAL_OK) {
+    Serial.println("[CAN] Failed to configure FDCAN clock!");
+    return;
+  }
+  #endif
+
   hfdcan1.Instance = FDCAN1;
 
   // Basic config
@@ -77,14 +95,23 @@ void initCan() {
   hfdcan1.Init.TransmitPause      = DISABLE;
   hfdcan1.Init.ProtocolException  = DISABLE;
 
-  // Nominal bit timing for 500 kbps at 48 MHz CAN clock
-  hfdcan1.Init.NominalPrescaler     = 6;
+  // Nominal bit timing for 500 kbps
+  // Bit time = (1 + TimeSeg1 + TimeSeg2) * Prescaler / Clock = 16 * Prescaler / Clock
+  #if defined(STM32C0xx)
+  hfdcan1.Init.NominalPrescaler     = 6;  // 48 MHz / 6 / 16 = 500 kbps
+  #elif defined(STM32U5xx)
+  hfdcan1.Init.NominalPrescaler     = 10; // 80 MHz (PLL1Q) / 10 / 16 = 500 kbps
+  #endif
   hfdcan1.Init.NominalSyncJumpWidth = 1;
   hfdcan1.Init.NominalTimeSeg1      = 13;
   hfdcan1.Init.NominalTimeSeg2      = 2;
 
-  // Data bit timing (same as nominal)
+  // Data bit timing (same as nominal for classic CAN)
+  #if defined(STM32C0xx)
   hfdcan1.Init.DataPrescaler        = 6;
+  #elif defined(STM32U5xx)
+  hfdcan1.Init.DataPrescaler        = 10;
+  #endif
   hfdcan1.Init.DataSyncJumpWidth    = 1;
   hfdcan1.Init.DataTimeSeg1         = 13;
   hfdcan1.Init.DataTimeSeg2         = 2;
@@ -173,7 +200,7 @@ void processCanTx() {
     txHeader.MessageMarker       = 0;
 
     if (HAL_FDCAN_AddMessageToTxFifoQ(&hfdcan1, &txHeader, rec.data) == HAL_OK) {
-      // Serial.printf("[CAN] Frame sent (ID:0x%x, DLC:%d)\n", rec.id, rec.dlc);
+      Serial.printf("[CAN] Frame sent (ID:0x%x, DLC:%d)\n", rec.id, rec.dlc);
     } else {
       Serial.printf("[CAN] AddMessageToTxFifoQ failed, Status=0x%x, ErrorCode=0x%x\n",
                     hfdcan1.ErrorCode, hfdcan1.ErrorCode);
