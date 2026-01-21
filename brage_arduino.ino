@@ -6,7 +6,7 @@
 #define ROLE TDMA_MASTER
 // #define ROLE TDMA_FOLLOWER
 
-// canRec testUplinkData = {.id = 0x720, .dlc = 8, .data = {0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA}};
+// canRec testData = {.id = 0x720, .dlc = 8, .data = {0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA}};
 
 int lastTransmit = 0;
 
@@ -15,20 +15,18 @@ void setup() {
 
   pinMode(LED_RX, OUTPUT);
   pinMode(LED_TX, OUTPUT);
+  delay(1000);
 
   initCan();
   initRadio();
   configRadio();
   tdmaInit(ROLE);
-
-  delay(500);
 }
-
 
 void loop() {
 
   // if (millis() - lastTransmit >= 1000) {
-  //   txBuf.push(testUplinkData);
+  //   txBuf.push(testData);
   //   lastTransmit = millis();
   // }
 
