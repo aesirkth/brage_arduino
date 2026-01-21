@@ -118,12 +118,12 @@ void radioTransmit(const uint8_t *buf, size_t len) {
     radioBusy = true;
     interrupts();
 
-    Serial.printf("[SX1280] TX len=%u\n", (unsigned int)len);
-    Serial.printf("[SX1280] TX HEX: ");
-    for (size_t i = 0; i < len; i++) {
-      Serial.printf("0x%x ", buf[i]);
-    }
-    Serial.println();
+    // Serial.printf("[SX1280] TX len=%u\n", (unsigned int)len);
+    // Serial.printf("[SX1280] TX HEX: ");
+    // for (size_t i = 0; i < len; i++) {
+    //   Serial.printf("0x%x ", buf[i]);
+    // }
+    // Serial.println();
   } else {
     Serial.printf("[SX1280] TX failed: %d\n", state);
     startRx();
