@@ -18,6 +18,8 @@ static const Module::RfSwitchMode_t rfswitch_table[] = {
 volatile bool radioFlag;
 static volatile bool radioBusy = false;
 static volatile uint32_t lastRxDoneUs = 0;
+static int8_t lastRxRSSI = 0;
+static int8_t lastRxSNR = 0;
 
 static void setFlag() {
   radioFlag = true;
@@ -84,6 +86,9 @@ static void handleRadioRx() {
   
   int state = radio.readData(buf, len);
   if (state == RADIOLIB_ERR_NONE) {
+    lastRxRSSI = (int8_t)radio.getRSSI();
+    lastRxSNR = (int8_t)radio.getSNR();
+
     // Adjust RX timestamp to packet midpoint
     uint32_t toa_us = (uint32_t)radio.getTimeOnAir(len);
     uint32_t midpoint_offset = toa_us / 2;
@@ -169,3 +174,6 @@ void radioIdle() {
   radioBusy = false;
   radio.standby();
 }
+
+int8_t radioGetLastRSSI() { return lastRxRSSI; }
+int8_t radioGetLastSNR() { return lastRxSNR; }

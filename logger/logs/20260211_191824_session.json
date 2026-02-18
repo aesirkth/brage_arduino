@@ -1,0 +1,10 @@
+{
+  "start_time": "2026-02-11T19:18:24.813336",
+  "end_time": "2026-02-11T19:24:07.988392",
+  "total_packets": 3315,
+  "sync_losses": 0,
+  "notes": "",
+  "packet_error_rate": 99.99992281669182,
+  "avg_rssi": -59.91,
+  "avg_snr": 3.25
+}

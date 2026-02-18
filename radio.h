@@ -27,4 +27,6 @@ void startRx();         // puts radio in rx mode
 void handleRadioIrq();  // handles dio1 interrupt (check if rx or tx irq)
 void radioTransmit(const uint8_t *buf, size_t len);   // transmit whatever is in txBuf
 void radioIdle();       // enter standby mode
+int8_t radioGetLastRSSI();  // RSSI of last received packet (dBm)
+int8_t radioGetLastSNR();   // SNR of last received packet (dB)
 

@@ -5,7 +5,7 @@
 #include <Arduino.h>
 
 #ifndef TDMA_ENABLE_DEBUG
-#define TDMA_ENABLE_DEBUG 0
+#define TDMA_ENABLE_DEBUG 1
 #endif
 
 #define TDMA_LOGF(...) do { if (TDMA_ENABLE_DEBUG) Serial.printf(__VA_ARGS__); } while (0)
@@ -13,6 +13,48 @@
 static struct tdmaState state;
 static void tdmaEnterSlot(SlotId next_slot);
 static void tdmaTransmit();
+
+// --- Telemetry logging ---
+#define LQ_WINDOW_SIZE 100
+
+static bool lqWindow[LQ_WINDOW_SIZE];
+static uint8_t lqIndex = 0;
+static bool frameGotPacket = false;
+static const char* frameMsgType = "NONE";
+
+static void updateLinkQuality(bool received) {
+  lqWindow[lqIndex] = received;
+  lqIndex = (lqIndex + 1) % LQ_WINDOW_SIZE;
+}
+
+static uint8_t calculateLinkQuality() {
+  uint8_t count = 0;
+  for (int i = 0; i < LQ_WINDOW_SIZE; i++) {
+    if (lqWindow[i]) count++;
+  }
+  return (count * 100) / LQ_WINDOW_SIZE;
+}
+
+static void printFrameLog() {
+  int8_t rssi = frameGotPacket ? radioGetLastRSSI() : 0;
+  int8_t snr = frameGotPacket ? radioGetLastSNR() : 0;
+
+  updateLinkQuality(frameGotPacket);
+  uint8_t lq = calculateLinkQuality();
+
+  Serial.printf("BRAGE,%lu,%d,%u,%d,%d,%u,%s,\n",
+    millis(),
+    state.synced ? 1 : 0,
+    state.frameSeq,
+    rssi,
+    snr,
+    lq,
+    frameMsgType
+  );
+
+  frameGotPacket = false;
+  frameMsgType = "NONE";
+}
 
 struct SlotWindow {
   SlotId id;
@@ -61,6 +103,7 @@ void tdmaUpdate() {
   if (state.role == TDMA_FOLLOWER && state.synced) {
     if (micros() - state.lastSyncUs >= FRAME_LEN_US * 10) {
       Serial.println("[TDMA] Lost sync");
+      Serial.printf("BRAGE_EVENT,%lu,SYNC_LOST,timeout\n", millis());
       state.synced = false;
       state.clockOffsetUs = 0;
       state.frameStartUs = micros();
@@ -71,6 +114,7 @@ void tdmaUpdate() {
 
   // Handle frame rollover
   if (elapsed >= FRAME_LEN_US) {
+    printFrameLog();
     state.frameStartUs += FRAME_LEN_US;
     state.frameSeq++;
     elapsed = now - (int64_t)state.frameStartUs;
@@ -105,26 +149,26 @@ static void tdmaEnterSlot(SlotId next_slot) {
   state.currentSlot = next_slot;
 
   switch (next_slot) {
-  case GUARD:
-    startRx();
-    break;
+    case GUARD:
+      startRx();
+      break;
 
-  case DOWNLINK:
-    if (state.role == TDMA_FOLLOWER) {
-      if (state.synced && !txBuf.isEmpty()) {
+    case DOWNLINK:
+      if (state.role == TDMA_FOLLOWER) {
+        if (state.synced && !txBuf.isEmpty()) {
+          tdmaTransmit();
+        }
+      } else {
+        startRx();
+      }
+      break;
+
+    case UPLINK:
+      if (state.role == TDMA_MASTER) {
         tdmaTransmit();
       }
-    } else {
-      startRx();
+      break;
     }
-    break;
-
-  case UPLINK:
-    if (state.role == TDMA_MASTER) {
-      tdmaTransmit();
-    }
-    break;
-  }
 }
 
 static bool processHeader(const uint8_t *buf, uint32_t rx_time){
@@ -141,15 +185,18 @@ static bool processHeader(const uint8_t *buf, uint32_t rx_time){
               h.slot_id, h.frame_seq, h.epoch_us, h.num_records);
 
 
-if (h.slot_id == UPLINK) {
+  if (h.slot_id == UPLINK) {
     // Calculate offset based on UPLINK start time (Guard + Downlink + Guard = 80ms)
     uint32_t uplink_start_us = GUARD_TIME_US + DOWNLINK_TIME_US + GUARD_TIME_US;
-    
+
     // clockOffset = (MasterFrameStart) - (LocalRxTime - TimeIntoFrame)
     state.clockOffsetUs = (int32_t)(h.epoch_us - (rx_time - uplink_start_us));
-    
+
     state.frameSeq = h.frame_seq;
     state.frameStartUs = h.epoch_us;
+    if (!state.synced) {
+      Serial.printf("BRAGE_EVENT,%lu,SYNC_ACQUIRED,\n", millis());
+    }
     state.synced = true;
     state.lastSyncUs = rx_time;
   }
@@ -163,12 +210,15 @@ void tdmaProcessRx(const uint8_t *buf, size_t len, uint32_t rx_time) {
   if (state.role == TDMA_FOLLOWER) {
     if (len < sizeof(tdmaHeader)) {
       return;
-    } 
+    }
     if (!processHeader(buf, rx_time)) {
       return;
     }
     offset = sizeof(tdmaHeader);
   }
+
+  frameGotPacket = true;
+  frameMsgType = (state.role == TDMA_FOLLOWER) ? "DL" : "UL";
 
   // Extract CAN records
   while (offset + sizeof(canRec) <= len) {

@@ -160,9 +160,9 @@ void pollCanRx() {
 
   if (HAL_FDCAN_GetRxMessage(&hfdcan1, FDCAN_RX_FIFO0, &rxHeader, data) == HAL_OK) {
     uint8_t len = dlcToBytes(rxHeader.DataLength);
-    // Serial.printf("[CAN] Frame received (ID=0x%x DLC=%d)\n",
-    //               rxHeader.Identifier,
-    //               rxHeader.DataLength);
+    Serial.printf("[CAN] Frame received (ID=0x%x DLC=%d)\n",
+                  rxHeader.Identifier,
+                  rxHeader.DataLength);
 
     canRec rec;
     rec.id  = rxHeader.Identifier;
